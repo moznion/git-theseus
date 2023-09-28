@@ -1,6 +1,6 @@
 module github.com/moznion/git-theseus
 
-go 1.21.1
+go 1.21
 
 require github.com/go-git/go-git/v5 v5.9.0
 
