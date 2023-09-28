@@ -1,7 +1,6 @@
 package gittheseus
 
 import (
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -11,15 +10,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func rollbackTestRepo() error {
+	cmd := exec.Command("git", "reset", "--hard", "9c33ff4879b003a35495d93a77ee2d941a2c4a73")
+	cmd.Dir = "./git-theseus-test-repo/"
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func TestApp(t *testing.T) {
-	err := os.RemoveAll("test-repo/")
+	defer func() {
+		_ = rollbackTestRepo()
+	}()
+
+	err := rollbackTestRepo()
 	assert.NoError(t, err)
 
-	err = cp.Copy("test-repo-orig", "test-repo")
+	err = cp.Copy("git-theseus-test-repo/foo", "git-theseus-test-repo/foo_new")
+	assert.NoError(t, err)
+	err = cp.Copy("git-theseus-test-repo/bar", "git-theseus-test-repo/bar_new")
 	assert.NoError(t, err)
 
 	cmd := exec.Command("go", "run", "../cmd/git-theseus/main.go", "--input-file", "git-theseus.json")
-	cmd.Dir = "./test-repo/"
+	cmd.Dir = "./git-theseus-test-repo/"
 	err = cmd.Run()
 	assert.NoError(t, err)
 
@@ -27,7 +41,7 @@ func TestApp(t *testing.T) {
 	gitEmail, _ := exec.Command("git", "config", "user.email").Output()
 
 	cmd = exec.Command("git", "show", "HEAD^^", "--pretty=fuller")
-	cmd.Dir = "./test-repo/"
+	cmd.Dir = "./git-theseus-test-repo/"
 	out, err := cmd.Output()
 	assert.NoError(t, err)
 	assert.Regexp(t, regexp.MustCompile(`commit [0-9a-f]{40}
@@ -62,7 +76,7 @@ index 0000000..[0-9a-f]{7}
 `), string(out))
 
 	cmd = exec.Command("git", "show", "HEAD^", "--pretty=fuller")
-	cmd.Dir = "./test-repo/"
+	cmd.Dir = "./git-theseus-test-repo/"
 	out, err = cmd.Output()
 	assert.NoError(t, err)
 	assert.Regexp(t, regexp.MustCompile(`commit [0-9a-f]{40}
@@ -92,7 +106,7 @@ index [0-9a-f]{7}..[0-9a-f]{7} 100644
 `), string(out))
 
 	cmd = exec.Command("git", "show", "HEAD", "--pretty=fuller")
-	cmd.Dir = "./test-repo/"
+	cmd.Dir = "./git-theseus-test-repo/"
 	out, err = cmd.Output()
 	assert.NoError(t, err)
 	assert.Regexp(t, regexp.MustCompile(`commit [0-9a-f]{40}
