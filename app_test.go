@@ -11,7 +11,7 @@ import (
 )
 
 func rollbackTestRepo() error {
-	cmd := exec.Command("git", "reset", "--hard", "9c33ff4879b003a35495d93a77ee2d941a2c4a73")
+	cmd := exec.Command("git", "reset", "--hard", "30a414b283d1aca97b18ae867ffc55f0fcc960b4")
 	cmd.Dir = "./git-theseus-test-repo/"
 	err := cmd.Run()
 	if err != nil {

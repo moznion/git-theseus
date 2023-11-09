@@ -14,8 +14,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
-type filePath string
-type lineNums []uint64
+type filePath = string
+type lineNums = []uint64
+type commitID = string
+type CommitToDiffs = map[commitID]*FilepathToLines
+type FilepathToLines = map[filePath]lineNums
 
 func Run(filePath string, dryrun bool) error {
 	fileContents, err := os.ReadFile(filePath)
@@ -23,7 +26,7 @@ func Run(filePath string, dryrun bool) error {
 		return fmt.Errorf("failed to load the file '%s': %w", filePath, err)
 	}
 
-	var commits CommitByLines
+	var commits CommitToDiffs
 	err = json.Unmarshal(fileContents, &commits)
 	if err != nil {
 		return fmt.Errorf("failed to load the file contents of '%s': %w", filePath, err)
@@ -45,7 +48,7 @@ func Run(filePath string, dryrun bool) error {
 type lineNumSet map[uint64]struct{}
 type executedMemo map[filePath]lineNumSet
 
-func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) error {
+func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) error {
 	memo := executedMemo{}
 
 	workingDir, err := os.Getwd()
@@ -68,7 +71,12 @@ func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) erro
 		commitID := sortedCommitIDs[i]
 		isLastCommit := sizeOfSortedCommitIDs <= i+1
 
-		for fp, lns := range commits.extractCommitsByID(commitID).aggregateByFilePath() {
+		filepath2lines, ok := commits[commitID]
+		if !ok {
+			continue
+		}
+
+		for fp, lns := range *filepath2lines {
 			err := func() error {
 				if _, ok := memo[fp]; !ok {
 					memo[fp] = lineNumSet{}
@@ -78,7 +86,7 @@ func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) erro
 					memo[fp][ln] = struct{}{}
 				}
 
-				f, err := os.Open(string(fp)) // to read the stats of a file
+				f, err := os.Open(fp) // to read the stats of a file
 				if err != nil {
 					return fmt.Errorf("failed to open the file '%s': %w", fp, err)
 				}
@@ -86,7 +94,7 @@ func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) erro
 					_ = f.Close()
 				}()
 
-				originalFileContents, err := os.ReadFile(string(fp))
+				originalFileContents, err := os.ReadFile(fp)
 				if err != nil {
 					return fmt.Errorf("failed to load the file contents of '%s': %w", fp, err)
 				}
@@ -110,7 +118,7 @@ func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) erro
 
 				fileStat, _ := f.Stat()
 
-				err = os.WriteFile(string(fp), []byte(strings.Join(lines, "\n")), fileStat.Mode())
+				err = os.WriteFile(fp, []byte(strings.Join(lines, "\n")), fileStat.Mode())
 				if err != nil {
 					return fmt.Errorf("failed to write the file contents onto '%s': %w", fp, err)
 				}
@@ -119,13 +127,13 @@ func doCommit(sortedCommitIDs []string, commits CommitByLines, dryrun bool) erro
 						return
 					}
 
-					err = os.WriteFile(string(fp), originalFileContents, fileStat.Mode())
+					err = os.WriteFile(fp, originalFileContents, fileStat.Mode())
 					if err != nil {
 						log.Fatalf("failed to roll-back the file: %s", err)
 					}
 				}()
 
-				_, err = gitWorktree.Add(string(fp))
+				_, err = gitWorktree.Add(fp)
 				if err != nil {
 					return fmt.Errorf("failed to operate git-add for '%s': %w", fp, err)
 				}
@@ -187,16 +195,11 @@ Date:   %s
 	return nil
 }
 
-func extractCommitIDs(commits CommitByLines) []string {
-	commitIDSet := map[string]struct{}{}
-	for _, commit := range commits {
-		commitIDSet[commit.CommitID] = struct{}{}
-	}
-
+func extractCommitIDs(commits CommitToDiffs) []string {
 	i := 0
-	commitIDs := make([]string, len(commitIDSet))
-	for commitID := range commitIDSet {
-		commitIDs[i] = commitID
+	commitIDs := make([]string, len(commits))
+	for cid := range commits {
+		commitIDs[i] = cid
 		i++
 	}
 
