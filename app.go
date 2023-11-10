@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -66,6 +67,47 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 		return fmt.Errorf("failed to get the git worktree info: %w", err)
 	}
 
+	type fileContents struct {
+		bytes []byte
+		mode  fs.FileMode
+	}
+
+	originalFileContentsMap := make(map[string]*fileContents)
+	for _, fp2lines := range commits {
+		for fp := range *fp2lines {
+			err := func() error {
+				f, err := os.Open(fp) // to read the stats of a file
+				if err != nil {
+					return fmt.Errorf("failed to open the file '%s': %w", fp, err)
+				}
+				defer func() {
+					_ = f.Close()
+				}()
+				fileStat, _ := f.Stat()
+
+				_, ok := originalFileContentsMap[fp]
+				if ok {
+					return nil
+				}
+
+				originalFileContents, err := os.ReadFile(fp)
+				if err != nil {
+					return fmt.Errorf("failed to open the file '%s': %w", fp, err)
+				}
+
+				originalFileContentsMap[fp] = &fileContents{
+					bytes: originalFileContents,
+					mode:  fileStat.Mode(),
+				}
+
+				return nil
+			}()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	sizeOfSortedCommitIDs := len(sortedCommitIDs)
 	for i := range sortedCommitIDs {
 		commitID := sortedCommitIDs[i]
@@ -86,20 +128,12 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 					memo[fp][ln] = struct{}{}
 				}
 
-				f, err := os.Open(fp) // to read the stats of a file
-				if err != nil {
-					return fmt.Errorf("failed to open the file '%s': %w", fp, err)
-				}
-				defer func() {
-					_ = f.Close()
-				}()
-
-				originalFileContents, err := os.ReadFile(fp)
-				if err != nil {
-					return fmt.Errorf("failed to load the file contents of '%s': %w", fp, err)
+				originalFileContents, ok := originalFileContentsMap[fp]
+				if !ok {
+					return fmt.Errorf("unexpected error; no original file contents of '%s'", fp)
 				}
 
-				scanner := bufio.NewScanner(bytes.NewReader(originalFileContents))
+				scanner := bufio.NewScanner(bytes.NewReader(originalFileContents.bytes))
 				scanner.Split(bufio.ScanLines)
 
 				var lines []string
@@ -116,9 +150,7 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 					}()
 				}
 
-				fileStat, _ := f.Stat()
-
-				err = os.WriteFile(fp, []byte(strings.Join(lines, "\n")), fileStat.Mode())
+				err = os.WriteFile(fp, []byte(strings.Join(lines, "\n")), originalFileContents.mode)
 				if err != nil {
 					return fmt.Errorf("failed to write the file contents onto '%s': %w", fp, err)
 				}
@@ -127,7 +159,7 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 						return
 					}
 
-					err = os.WriteFile(fp, originalFileContents, fileStat.Mode())
+					err = os.WriteFile(fp, originalFileContents.bytes, originalFileContents.mode)
 					if err != nil {
 						log.Fatalf("failed to roll-back the file: %s", err)
 					}
@@ -190,6 +222,13 @@ Date:   %s
 		}
 
 		log.Printf("commited: %s (dryrun: %v)", committedID, dryrun)
+	}
+
+	for fp, originalFileContents := range originalFileContentsMap {
+		err = os.WriteFile(fp, originalFileContents.bytes, originalFileContents.mode)
+		if err != nil {
+			log.Fatalf("failed to restore the file on wrap-up: %s", err)
+		}
 	}
 
 	return nil

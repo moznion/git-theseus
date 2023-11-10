@@ -10,7 +10,7 @@ import (
 )
 
 func rollbackTestRepo() error {
-	cmd := exec.Command("git", "reset", "--hard", "b6f4744e3813777569a9ac390a5c2608b800bfb7")
+	cmd := exec.Command("git", "reset", "--hard", "7a3570db4ed4bbf55f750794c7b174f322f6a8bd")
 	cmd.Dir = "./git-theseus-test-repo/"
 	err := cmd.Run()
 	if err != nil {
@@ -144,5 +144,35 @@ index [0-9a-f]{7}..[0-9a-f]{7} 100644
  5-B # original file's line is 5
  6-A # original file's line is 6
 \\ No newline at end of file
+$`), string(out))
+
+	// check whether the non-related lines are restored correctly
+	cmd = exec.Command("git", "diff")
+	cmd.Dir = "./git-theseus-test-repo/"
+	out, err = cmd.Output()
+	assert.NoError(t, err)
+	assert.Regexp(t, regexp.MustCompile(`^diff --git a/bar_new b/bar_new
+index [0-9a-f]{7}..[0-9a-f]{7} 100644
+--- a/bar_new
+[+]{3} b/bar_new
+@@ -1,4 [+]1,5 @@
+ 1-A # original file's line is 1
+ 2-A # original file's line is 2
+ 3-A # original file's line is 3
+-3-B # original file's line is 3
+\\ No newline at end of file
+[+]3-B # original file's line is 3
+[+]XXX # no related lines
+diff --git a/foo_new b/foo_new
+index [0-9a-f]{7}..[0-9a-f]{7} 100644
+--- a/foo_new
+[+]{3} b/foo_new
+@@ -5,4 [+]5,4 @@
+ 4-A # original file's line is 4
+ 5-A # original file's line is 5
+ 5-B # original file's line is 5
+-6-A # original file's line is 6
+\\ No newline at end of file
+[+]6-A # original file's line is 6
 $`), string(out))
 }
