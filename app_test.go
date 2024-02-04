@@ -18,6 +18,7 @@ func rollbackTestRepo() error {
 	}
 	return nil
 }
+
 func TestApp(t *testing.T) {
 	defer func() {
 		_ = rollbackTestRepo()
@@ -60,7 +61,6 @@ index 0000000..[0-9a-f]{7}
 @@ -0,0 [+]1,2 @@
 [+]3-A # original file's line is 3
 [+]3-B # original file's line is 3
-\\ No newline at end of file
 diff --git a/foo_new b/foo_new
 new file mode 100644
 index 0000000..[0-9a-f]{7}
@@ -71,7 +71,6 @@ index 0000000..[0-9a-f]{7}
 [+]1-B # original file's line is 1
 [+]2-A # original file's line is 2
 [+]3-A # original file's line is 3
-\\ No newline at end of file
 $`), string(out))
 
 	cmd = exec.Command("git", "show", "HEAD^", "--pretty=fuller")
@@ -93,17 +92,13 @@ diff --git a/foo_new b/foo_new
 index [0-9a-f]{7}..[0-9a-f]{7} 100644
 --- a/foo_new
 [+]{3} b/foo_new
-@@ -1,4 [+]1,7 @@
- 1-A # original file's line is 1
+@@ -2,3 [+]2,6 @@
  1-B # original file's line is 1
  2-A # original file's line is 2
--3-A # original file's line is 3
-\\ No newline at end of file
-[+]3-A # original file's line is 3
+ 3-A # original file's line is 3
 [+]5-A # original file's line is 5
 [+]5-B # original file's line is 5
 [+]6-A # original file's line is 6
-\\ No newline at end of file
 $`), string(out))
 
 	cmd = exec.Command("git", "show", "HEAD", "--pretty=fuller")
@@ -130,7 +125,6 @@ index [0-9a-f]{7}..[0-9a-f]{7} 100644
 [+]2-A # original file's line is 2
  3-A # original file's line is 3
  3-B # original file's line is 3
-\\ No newline at end of file
 diff --git a/foo_new b/foo_new
 index [0-9a-f]{7}..[0-9a-f]{7} 100644
 --- a/foo_new
@@ -143,7 +137,6 @@ index [0-9a-f]{7}..[0-9a-f]{7} 100644
  5-A # original file's line is 5
  5-B # original file's line is 5
  6-A # original file's line is 6
-\\ No newline at end of file
 $`), string(out))
 
 	// check whether the non-related lines are restored correctly
@@ -155,24 +148,10 @@ $`), string(out))
 index [0-9a-f]{7}..[0-9a-f]{7} 100644
 --- a/bar_new
 [+]{3} b/bar_new
-@@ -1,4 [+]1,5 @@
- 1-A # original file's line is 1
+@@ -2,3 [+]2,4 @@
  2-A # original file's line is 2
  3-A # original file's line is 3
--3-B # original file's line is 3
-\\ No newline at end of file
-[+]3-B # original file's line is 3
+ 3-B # original file's line is 3
 [+]XXX # no related lines
-diff --git a/foo_new b/foo_new
-index [0-9a-f]{7}..[0-9a-f]{7} 100644
---- a/foo_new
-[+]{3} b/foo_new
-@@ -5,4 [+]5,4 @@
- 4-A # original file's line is 4
- 5-A # original file's line is 5
- 5-B # original file's line is 5
--6-A # original file's line is 6
-\\ No newline at end of file
-[+]6-A # original file's line is 6
 $`), string(out))
 }

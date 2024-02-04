@@ -150,7 +150,7 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 					}()
 				}
 
-				err = os.WriteFile(fp, []byte(strings.Join(lines, "\n")), originalFileContents.mode)
+				err = os.WriteFile(fp, []byte(strings.Join(lines, "\n")+"\n"), originalFileContents.mode)
 				if err != nil {
 					return fmt.Errorf("failed to write the file contents onto '%s': %w", fp, err)
 				}
