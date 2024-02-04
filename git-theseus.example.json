@@ -1,0 +1,14 @@
+{
+  "b36384d2da65869dce07f09c204d2e5407ee0dad": {
+    "foo_new": [1, 2, 3],
+    "bar_new": [3]
+  },
+  "9c4fe1bc69832dd26f980c2c8530964d32d1e98b": {
+    "foo_new": [5, 6]
+  },
+  "7b0521555ba48ccc561dada09b2baf7039f87234": {
+    "foo_new": [4],
+    "bar_new": [1, 2]
+  }
+}
+
