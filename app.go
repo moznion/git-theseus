@@ -108,11 +108,7 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 		}
 	}
 
-	sizeOfSortedCommitIDs := len(sortedCommitIDs)
-	for i := range sortedCommitIDs {
-		commitID := sortedCommitIDs[i]
-		isLastCommit := sizeOfSortedCommitIDs <= i+1
-
+	for _, commitID := range sortedCommitIDs {
 		filepath2lines, ok := commits[commitID]
 		if !ok {
 			continue
@@ -154,16 +150,6 @@ func doCommit(sortedCommitIDs []string, commits CommitToDiffs, dryrun bool) erro
 				if err != nil {
 					return fmt.Errorf("failed to write the file contents onto '%s': %w", fp, err)
 				}
-				defer func() {
-					if isLastCommit {
-						return
-					}
-
-					err = os.WriteFile(fp, originalFileContents.bytes, originalFileContents.mode)
-					if err != nil {
-						log.Fatalf("failed to roll-back the file: %s", err)
-					}
-				}()
 
 				_, err = gitWorktree.Add(fp)
 				if err != nil {
